@@ -1,10 +1,11 @@
 esphome:
-  name: sidestand-1
-  friendly_name: "Sidestand-1"
+  name: bedback
+  friendly_name: "Bedback"
 
-esp8266:
-  board: nodemcuv2
-  restore_from_flash: true
+esp32:
+  board: esp32-c3-devkitm-1
+  framework: 
+    type: arduino
 
 logger:
 api:
@@ -47,9 +48,9 @@ sensor:
     entity_category: "diagnostic"
 
   # ESP Internal Temperature (supported on ESP8266)
-  # - platform: internal_temperature
-  #   name: "ESP Temperature"
-  #   entity_category: "diagnostic"
+  - platform: internal_temperature
+    name: "ESP Temperature"
+    entity_category: "diagnostic"
 
 # ========== TEXT SENSORS ==========
 text_sensor:
@@ -78,7 +79,7 @@ light:
     type: GRB
     variant: WS2812X
     pin: GPIO02
-    num_leds: 90
+    num_leds: 81
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF

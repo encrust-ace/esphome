@@ -106,6 +106,7 @@ light:
           lambda: |-
             float animation_period_ms = 10000.0;
             float time_progress = fmod((float)millis(), animation_period_ms) / animation_period_ms;
+            float time_phase = time_progress * M_PI * 2.0;
 
             Color base_flame_color = Color(255, 100, 0);
             Color peak_flame_color = Color(255, 255, 200);
@@ -118,42 +119,45 @@ light:
             float max_brightness_factor = 1.0;
             float random_flicker_strength = 0.2;
 
+            float global_flicker = (sin(time_phase * global_flicker_speed) + 1.0f) / 2.0f;
+
+            auto blend = [](uint8_t a, uint8_t b, float t) -> uint8_t {
+              return static_cast<uint8_t>(a + (b - a) * t);
+            };
+
             for (int i = 0; i < it.size(); i++) {
-                Color current_led_color;
-                float current_brightness_factor;
+              Color current_led_color;
+              float current_brightness_factor;
 
-                if (i < base_glow_leds) {
-                    current_led_color = base_flame_color;
-                    current_brightness_factor = 1.0;
-                } else {
-                    float global_flicker = sin(time_progress * M_PI * 2.0 * global_flicker_speed);
-                    global_flicker = (global_flicker + 1.0) / 2.0;
+              if (i < base_glow_leds) {
+                current_led_color = base_flame_color;
+                current_brightness_factor = 1.0;
+              } else {
+                float per_led_flicker = (sin(time_phase * per_led_flicker_speed + i * 0.5f) + 1.0f) / 2.0f;
+                float combined_flicker = global_flicker * 0.7f + per_led_flicker * 0.3f;
 
-                    float per_led_flicker = sin((time_progress * M_PI * 2.0 * per_led_flicker_speed) + (i * 0.5));
-                    per_led_flicker = (per_led_flicker + 1.0) / 2.0;
+                float random_val = (float)esphome::random_uint32() / (float)UINT32_MAX;
+                combined_flicker += (random_val - 0.5f) * random_flicker_strength;
+                combined_flicker = esphome::clamp(combined_flicker, 0.0f, 1.0f);
 
-                    float combined_flicker = global_flicker * 0.7 + per_led_flicker * 0.3;
+                current_brightness_factor = min_brightness_factor + 
+                  (max_brightness_factor - min_brightness_factor) * combined_flicker;
 
-                    float random_val = (float)os_random() / (float)0xFFFFFFFF;
-                    combined_flicker += (random_val - 0.5) * random_flicker_strength;
+                float height_progress = (float)(i - base_glow_leds) / (it.size() - 1.0f - base_glow_leds);
+                height_progress = esphome::clamp(height_progress, 0.0f, 1.0f);
 
-                    combined_flicker = fmax(0.0, fmin(1.0, combined_flicker));
+                current_led_color = Color(
+                  blend(base_flame_color.r, peak_flame_color.r, height_progress),
+                  blend(base_flame_color.g, peak_flame_color.g, height_progress),
+                  blend(base_flame_color.b, peak_flame_color.b, height_progress)
+                );
+              }
 
-                    current_brightness_factor = min_brightness_factor + (max_brightness_factor - min_brightness_factor) * combined_flicker;
-
-                    float height_progress = (float)(i - base_glow_leds) / (it.size() - 1.0 - base_glow_leds);
-                    height_progress = fmax(0.0, fmin(1.0, height_progress));
-
-                    current_led_color.r = (uint8_t)(base_flame_color.r * (1.0 - height_progress) + peak_flame_color.r * height_progress);
-                    current_led_color.g = (uint8_t)(base_flame_color.g * (1.0 - height_progress) + peak_flame_color.g * height_progress);
-                    current_led_color.b = (uint8_t)(base_flame_color.b * (1.0 - height_progress) + peak_flame_color.b * height_progress);
-                }
-
-                uint8_t r = (uint8_t)(current_led_color.r * current_brightness_factor);
-                uint8_t g = (uint8_t)(current_led_color.g * current_brightness_factor);
-                uint8_t b = (uint8_t)(current_led_color.b * current_brightness_factor);
-
-                it[i] = Color(r, g, b);
+              it[i] = Color(
+                static_cast<uint8_t>(current_led_color.r * current_brightness_factor),
+                static_cast<uint8_t>(current_led_color.g * current_brightness_factor),
+                static_cast<uint8_t>(current_led_color.b * current_brightness_factor)
+              );
             }
 
       - wled:
