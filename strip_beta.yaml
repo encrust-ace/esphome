@@ -1,0 +1,160 @@
+esphome:
+  name: strip-beta
+  friendly_name: "Strip Beta"
+
+esp8266:
+  board: esp01_1m
+  restore_from_flash: true
+
+logger:
+api:
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Strip-Beta Fallback Hotspot"
+    password: "12345678"
+
+captive_portal:
+web_server:
+improv_serial:
+wled:
+
+# ========== SENSORS ==========
+sensor:
+  # WiFi Signal Strength
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+
+  # Uptime in seconds
+  - platform: uptime
+    name: "Uptime"
+    unit_of_measurement: "s"
+    entity_category: "diagnostic"
+
+  # Free Heap (RAM)
+  - platform: template
+    name: "Free Heap"
+    lambda: 'return (float)ESP.getFreeHeap();'
+    unit_of_measurement: "bytes"
+    update_interval: 60s
+    entity_category: "diagnostic"
+
+  # ESP Internal Temperature (supported on ESP8266)
+  # - platform: internal_temperature
+  #   name: "ESP Temperature"
+  #   entity_category: "diagnostic"
+
+# ========== TEXT SENSORS ==========
+text_sensor:
+  # WiFi Info
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      icon: "mdi:ip-network"
+      entity_category: "diagnostic"
+    ssid:
+      name: "Connected SSID"
+      icon: "mdi:wifi"
+      entity_category: "diagnostic"
+    bssid:
+      name: "BSSID"
+      icon: "mdi:router-wireless"
+      entity_category: "diagnostic"
+    mac_address:
+      name: "MAC Address"
+      icon: "mdi:ethernet"
+      entity_category: "diagnostic"
+
+# ========== LIGHT ==========
+light:
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2812X
+    pin: GPIO02
+    num_leds: 60
+    id: strip_light
+    name: "Light"
+    restore_mode: RESTORE_DEFAULT_OFF
+    effects:
+      - random:
+      - random:
+          name: "Random Fast"
+          transition_length: 4s
+          update_interval: 5s
+      - pulse:
+      - addressable_flicker:
+      - addressable_fireworks:
+      - addressable_twinkle:
+      - addressable_random_twinkle:
+      - addressable_scan:
+      - addressable_color_wipe:
+      - addressable_rainbow:
+          name: "Rainbow"
+      - addressable_rainbow:
+          name: "Slow Rainbow"
+          speed: 5
+      - addressable_lambda:
+          name: "Diya Flicker"
+          update_interval: 16ms
+          lambda: |-
+            float animation_period_ms = 10000.0;
+            float time_progress = fmod((float)millis(), animation_period_ms) / animation_period_ms;
+
+            Color base_flame_color = Color(255, 100, 0);
+            Color peak_flame_color = Color(255, 255, 200);
+
+            int base_glow_leds = 3;
+
+            float global_flicker_speed = 4.0;
+            float per_led_flicker_speed = 8.0;
+            float min_brightness_factor = 0.3;
+            float max_brightness_factor = 1.0;
+            float random_flicker_strength = 0.2;
+
+            for (int i = 0; i < it.size(); i++) {
+                Color current_led_color;
+                float current_brightness_factor;
+
+                if (i < base_glow_leds) {
+                    current_led_color = base_flame_color;
+                    current_brightness_factor = 1.0;
+                } else {
+                    float global_flicker = sin(time_progress * M_PI * 2.0 * global_flicker_speed);
+                    global_flicker = (global_flicker + 1.0) / 2.0;
+
+                    float per_led_flicker = sin((time_progress * M_PI * 2.0 * per_led_flicker_speed) + (i * 0.5));
+                    per_led_flicker = (per_led_flicker + 1.0) / 2.0;
+
+                    float combined_flicker = global_flicker * 0.7 + per_led_flicker * 0.3;
+
+                    float random_val = (float)os_random() / (float)0xFFFFFFFF;
+                    combined_flicker += (random_val - 0.5) * random_flicker_strength;
+
+                    combined_flicker = fmax(0.0, fmin(1.0, combined_flicker));
+
+                    current_brightness_factor = min_brightness_factor + (max_brightness_factor - min_brightness_factor) * combined_flicker;
+
+                    float height_progress = (float)(i - base_glow_leds) / (it.size() - 1.0 - base_glow_leds);
+                    height_progress = fmax(0.0, fmin(1.0, height_progress));
+
+                    current_led_color.r = (uint8_t)(base_flame_color.r * (1.0 - height_progress) + peak_flame_color.r * height_progress);
+                    current_led_color.g = (uint8_t)(base_flame_color.g * (1.0 - height_progress) + peak_flame_color.g * height_progress);
+                    current_led_color.b = (uint8_t)(base_flame_color.b * (1.0 - height_progress) + peak_flame_color.b * height_progress);
+                }
+
+                uint8_t r = (uint8_t)(current_led_color.r * current_brightness_factor);
+                uint8_t g = (uint8_t)(current_led_color.g * current_brightness_factor);
+                uint8_t b = (uint8_t)(current_led_color.b * current_brightness_factor);
+
+                it[i] = Color(r, g, b);
+            }
+
+      - wled:
+          name: "UDP Sync"
