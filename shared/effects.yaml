@@ -1,0 +1,212 @@
+- random:
+- random:
+    name: "Random Fast"
+    transition_length: 4s
+    update_interval: 5s
+- pulse:
+- addressable_flicker:
+- addressable_fireworks:
+- addressable_twinkle:
+- addressable_random_twinkle:
+- addressable_scan:
+- addressable_color_wipe:
+- addressable_rainbow:
+    name: "Rainbow"
+- addressable_rainbow:
+    name: "Slow Rainbow"
+    speed: 5
+- addressable_lambda:
+    name: "Diya Flicker"
+    update_interval: 16ms
+    lambda: |-
+      float animation_period_ms = 10000.0;
+      float time_progress = fmod((float)millis(), animation_period_ms) / animation_period_ms;
+      float time_phase = time_progress * M_PI * 2.0;
+
+      Color base_flame_color = Color(255, 100, 0);
+      Color peak_flame_color = Color(255, 255, 200);
+
+      int base_glow_leds = 3;
+
+      float global_flicker_speed = 4.0;
+      float per_led_flicker_speed = 8.0;
+      float min_brightness_factor = 0.3;
+      float max_brightness_factor = 1.0;
+      float random_flicker_strength = 0.2;
+
+      float global_flicker = (sin(time_phase * global_flicker_speed) + 1.0f) / 2.0f;
+
+      auto blend = [](uint8_t a, uint8_t b, float t) -> uint8_t {
+        return static_cast<uint8_t>(a + (b - a) * t);
+      };
+
+      for (int i = 0; i < it.size(); i++) {
+        Color current_led_color;
+        float current_brightness_factor;
+
+        if (i < base_glow_leds) {
+          current_led_color = base_flame_color;
+          current_brightness_factor = 1.0;
+        } else {
+          float per_led_flicker = (sin(time_phase * per_led_flicker_speed + i * 0.5f) + 1.0f) / 2.0f;
+          float combined_flicker = global_flicker * 0.7f + per_led_flicker * 0.3f;
+
+          float random_val = (float)esphome::random_uint32() / (float)UINT32_MAX;
+          combined_flicker += (random_val - 0.5f) * random_flicker_strength;
+          combined_flicker = esphome::clamp(combined_flicker, 0.0f, 1.0f);
+
+          current_brightness_factor = min_brightness_factor + 
+            (max_brightness_factor - min_brightness_factor) * combined_flicker;
+
+          float height_progress = (float)(i - base_glow_leds) / (it.size() - 1.0f - base_glow_leds);
+          height_progress = esphome::clamp(height_progress, 0.0f, 1.0f);
+
+          current_led_color = Color(
+            blend(base_flame_color.r, peak_flame_color.r, height_progress),
+            blend(base_flame_color.g, peak_flame_color.g, height_progress),
+            blend(base_flame_color.b, peak_flame_color.b, height_progress)
+          );
+        }
+
+        it[i] = Color(
+          static_cast<uint8_t>(current_led_color.r * current_brightness_factor),
+          static_cast<uint8_t>(current_led_color.g * current_brightness_factor),
+          static_cast<uint8_t>(current_led_color.b * current_brightness_factor)
+        );
+      }
+
+- addressable_lambda:
+    name: "Siri Glow"
+    update_interval: 1s
+    lambda: |-
+      static std::vector<Color> siri_colors = {
+        Color(0, 255, 255),
+        Color(138, 43, 226),
+        Color(255, 105, 180)
+      };
+
+      int num_segments = siri_colors.size();
+      int segment_len = it.size() / num_segments;
+
+      auto blend_color = [](const Color &a, const Color &b, float t) -> Color {
+        return Color(
+          static_cast<uint8_t>(a.r + (b.r - a.r) * t),
+          static_cast<uint8_t>(a.g + (b.g - a.g) * t),
+          static_cast<uint8_t>(a.b + (b.b - a.b) * t)
+        );
+      };
+
+      for (int i = 0; i < it.size(); i++) {
+        int segment = i / segment_len;
+        int next_segment = (segment + 1) % siri_colors.size();
+        float local_pos = (i % segment_len) / float(segment_len);
+        Color color = blend_color(siri_colors[segment], siri_colors[next_segment], local_pos);
+        it[i] = color;
+      }
+
+- addressable_lambda:
+    name: "Water Drop"
+    update_interval: 16ms
+    lambda: |-
+      static float drop_pos = -1.0;
+      static float drop_speed = 0.0;
+      static bool forming = false;
+      static bool lingering = false;
+      static unsigned long start_time = 0;
+      static unsigned long last_drop_end = 0;
+      static unsigned long next_drop_delay = 0;
+      static const float form_duration = 1500.0;
+      static const float gravity = 0.6;
+      static const int grow_len = 5;
+      static const int drop_len = 5;
+      static const unsigned long linger_duration = 100;
+
+      Color base_color = current_color;
+      it.all() = Color(0, 0, 0);
+
+      unsigned long now = millis();
+
+      if (!forming && !lingering && drop_pos < 0 && now - last_drop_end > next_drop_delay) {
+        forming = true;
+        start_time = now;
+      }
+
+      if (forming) {
+        float t = (now - start_time) / form_duration;
+        t = esphome::clamp(t, 0.0f, 1.0f);
+        float eased_t = t * t * t;  // Cubic ease-in for smoother brightness
+
+        for (int i = 0; i < grow_len; i++) {
+          float led_start = float(i) / grow_len;
+          float led_end = float(i + 1) / grow_len;
+          float brightness = 0.0f;
+
+          if (eased_t >= led_end) {
+            brightness = 1.0f;
+          } else if (eased_t > led_start) {
+            brightness = (eased_t - led_start) / (led_end - led_start);
+          }
+
+          brightness = esphome::clamp(brightness, 0.0f, 1.0f);
+
+          int idx = it.size() - 1 - i;
+          if (idx >= 0 && idx < it.size()) {
+            it[idx] = Color(
+              base_color.r * brightness,
+              base_color.g * brightness,
+              base_color.b * brightness
+            );
+          }
+        }
+
+        if (t >= 1.0f) {
+          forming = false;
+          drop_pos = 0.0;
+          drop_speed = 0.0;
+        }
+
+      } else if (drop_pos >= 0) {
+        drop_speed += gravity;
+        drop_pos += drop_speed;
+
+        int drop_start = it.size() - 1 - static_cast<int>(drop_pos);
+        for (int i = 0; i < drop_len; i++) {
+          int idx = drop_start - i;
+          if (idx >= 0 && idx < it.size()) {
+            float fade = 1.0f - (float)i / drop_len;
+            it[idx] = Color(
+              base_color.r * fade,
+              base_color.g * fade,
+              base_color.b * fade
+            );
+          }
+        }
+
+        if (drop_start < 0) {
+          drop_pos = -1.0;
+          lingering = true;
+          start_time = now;
+        }
+
+      } else if (lingering) {
+        if (now - start_time < linger_duration) {
+          for (int i = 0; i < drop_len; i++) {
+            int idx = i;
+            if (idx >= 0 && idx < it.size()) {
+              float fade = 1.0f - (float)i / drop_len;
+              it[idx] = Color(
+                base_color.r * fade,
+                base_color.g * fade,
+                base_color.b * fade
+              );
+            }
+          }
+        } else {
+          lingering = false;
+          last_drop_end = now;
+          next_drop_delay = 1000 + esphome::random_uint32() % 2000;
+        }
+      }
+
+- wled:
+    name: "UDP Sync"
