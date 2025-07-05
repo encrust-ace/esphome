@@ -83,5 +83,5 @@ light:
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
-    color_correct: [80%, 80%, 80%]
+    # color_correct: [80%, 80%, 80%]
     effects: !include shared/effects.yaml
