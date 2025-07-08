@@ -7,7 +7,7 @@ esp32:
   framework: 
     type: arduino
 
-bluetooth_proxy:
+# bluetooth_proxy:
 logger:
 api:
 ota:
