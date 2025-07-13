@@ -77,7 +77,6 @@
 
 - addressable_lambda:
     name: "Siri Glow"
-    update_interval: 1s
     lambda: |-
       static std::vector<Color> siri_colors = {
         Color(0, 255, 255),
@@ -205,6 +204,17 @@
           lingering = false;
           last_drop_end = now;
           next_drop_delay = 1000 + esphome::random_uint32() % 2000;
+        }
+      }
+- addressable_lambda:
+    name: "Range Control"
+    update_interval: 100ms
+    lambda: |-
+      for (int i = 0; i < it.size(); i++) {
+        if (i >= id(led_start_index) && i < id(led_end_index)) {
+          it[i] = current_color;
+        } else {
+          it[i] = Color::BLACK;
         }
       }
 

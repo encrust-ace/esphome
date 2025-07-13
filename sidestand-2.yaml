@@ -46,7 +46,7 @@ sensor:
     update_interval: 60s
     entity_category: "diagnostic"
 
-  # ESP Internal Temperature (supported on ESP8266)
+  # ESP Internal Temperature (supported on ESP32)
   # - platform: internal_temperature
   #   name: "ESP Temperature"
   #   entity_category: "diagnostic"
@@ -63,16 +63,47 @@ text_sensor:
       name: "Connected SSID"
       icon: "mdi:wifi"
       entity_category: "diagnostic"
-    bssid:
-      name: "BSSID"
-      icon: "mdi:router-wireless"
-      entity_category: "diagnostic"
     mac_address:
       name: "MAC Address"
       icon: "mdi:ethernet"
       entity_category: "diagnostic"
 
 # ========== LIGHT ==========
+globals:
+  - id: led_start_index
+    type: int
+    initial_value: '0'
+  - id: led_end_index
+    type: int
+    initial_value: '15'
+
+number:
+  - platform: template
+    name: "LED Start Index"
+    id: led_start_input
+    min_value: 0
+    max_value: 89
+    initial_value: 0
+    step: 1
+    optimistic: true
+    set_action:
+      then:
+        - lambda: |-
+            id(led_start_index) = (int)x;
+
+  - platform: template
+    name: "LED End Index"
+    id: led_end_input
+    min_value: 1
+    max_value: 90
+    initial_value: 90
+    step: 1
+    optimistic: true
+    set_action:
+      then:
+        - lambda: |-
+            id(led_end_index) = (int)x;
+
 light:
   - platform: neopixelbus
     type: GRB
@@ -82,5 +113,4 @@ light:
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
-    # color_correct: [80%, 80%, 80%]
     effects: !include shared/effects.yaml
