@@ -1,20 +1,9 @@
 - random:
-- random:
-    name: "Random Fast"
-    transition_length: 4s
-    update_interval: 5s
-- pulse:
-- addressable_flicker:
 - addressable_fireworks:
 - addressable_twinkle:
-- addressable_random_twinkle:
 - addressable_scan:
 - addressable_color_wipe:
 - addressable_rainbow:
-    name: "Rainbow"
-- addressable_rainbow:
-    name: "Slow Rainbow"
-    speed: 5
 - addressable_lambda:
     name: "Diya Flicker"
     update_interval: 16ms
@@ -104,117 +93,80 @@
       }
 
 - addressable_lambda:
-    name: "Water Drop"
+    name: "Drip"
     update_interval: 16ms
     lambda: |-
-      static float drop_pos = -1.0;
-      static float drop_speed = 0.0;
-      static bool forming = false;
-      static bool lingering = false;
-      static unsigned long start_time = 0;
-      static unsigned long last_drop_end = 0;
-      static unsigned long next_drop_delay = 0;
-      static const float form_duration = 1500.0;
-      static const float gravity = 0.6;
-      static const int grow_len = 5;
-      static const int drop_len = 5;
-      static const unsigned long linger_duration = 100;
+      struct Drop {
+        float pos;
+        float vel;
+        uint16_t col;
+        uint8_t col_index;
+      };
+
+      static const int max_drops = 4;
+      static Drop drops[max_drops];
+
+      float gravity = -0.0005f - (128.0f / 50000.0f);  // Approximate SEGMENT.speed = 128
+      gravity *= std::max(1.0f, float(it.size() - 1));
+      const int sourcedrop = 12;
 
       Color base_color = current_color;
       it.all() = Color(0, 0, 0);
+      int seglen = it.size();
 
-      unsigned long now = millis();
+      for (int j = 0; j < max_drops; j++) {
+        if (drops[j].col_index == 0) {
+          drops[j].pos = seglen - 1;
+          drops[j].vel = 0;
+          drops[j].col = sourcedrop;
+          drops[j].col_index = 1;
+        }
 
-      if (!forming && !lingering && drop_pos < 0 && now - last_drop_end > next_drop_delay) {
-        forming = true;
-        start_time = now;
-      }
+        int src_idx = seglen - 1;
+        it[src_idx] = base_color.fade_to_black(255 - sourcedrop);
 
-      if (forming) {
-        float t = (now - start_time) / form_duration;
-        t = esphome::clamp(t, 0.0f, 1.0f);
-        float eased_t = t * t * t;  // Cubic ease-in for smoother brightness
+        if (drops[j].col_index == 1) {
+          if (drops[j].col > 255) drops[j].col = 255;
+          int p = int(drops[j].pos);
+          if (p >= 0 && p < seglen)
+            it[p] = base_color.fade_to_black(255 - drops[j].col);
 
-        for (int i = 0; i < grow_len; i++) {
-          float led_start = float(i) / grow_len;
-          float led_end = float(i + 1) / grow_len;
-          float brightness = 0.0f;
+          drops[j].col += 2;
 
-          if (eased_t >= led_end) {
-            brightness = 1.0f;
-          } else if (eased_t > led_start) {
-            brightness = (eased_t - led_start) / (led_end - led_start);
-          }
-
-          brightness = esphome::clamp(brightness, 0.0f, 1.0f);
-
-          int idx = it.size() - 1 - i;
-          if (idx >= 0 && idx < it.size()) {
-            it[idx] = Color(
-              base_color.r * brightness,
-              base_color.g * brightness,
-              base_color.b * brightness
-            );
+          if ((esphome::random_uint32() % 256) < drops[j].col / 10) {
+            drops[j].col_index = 2;
+            drops[j].col = 255;
           }
         }
 
-        if (t >= 1.0f) {
-          forming = false;
-          drop_pos = 0.0;
-          drop_speed = 0.0;
-        }
+        if (drops[j].col_index > 1) {
+          if (drops[j].pos > 0) {
+            drops[j].pos += drops[j].vel;
+            if (drops[j].pos < 0) drops[j].pos = 0;
+            drops[j].vel += gravity;
 
-      } else if (drop_pos >= 0) {
-        drop_speed += gravity;
-        drop_pos += drop_speed;
+            for (int i = 1; i < 7 - drops[j].col_index; i++) {
+              int pos = int(drops[j].pos + i);
+              pos = std::max(0, std::min(pos, seglen - 1));
+              it[pos] = base_color.fade_to_black(255 - drops[j].col / i);
+            }
 
-        int drop_start = it.size() - 1 - static_cast<int>(drop_pos);
-        for (int i = 0; i < drop_len; i++) {
-          int idx = drop_start - i;
-          if (idx >= 0 && idx < it.size()) {
-            float fade = 1.0f - (float)i / drop_len;
-            it[idx] = Color(
-              base_color.r * fade,
-              base_color.g * fade,
-              base_color.b * fade
-            );
-          }
-        }
-
-        if (drop_start < 0) {
-          drop_pos = -1.0;
-          lingering = true;
-          start_time = now;
-        }
-
-      } else if (lingering) {
-        if (now - start_time < linger_duration) {
-          for (int i = 0; i < drop_len; i++) {
-            int idx = i;
-            if (idx >= 0 && idx < it.size()) {
-              float fade = 1.0f - (float)i / drop_len;
-              it[idx] = Color(
-                base_color.r * fade,
-                base_color.g * fade,
-                base_color.b * fade
-              );
+            if (drops[j].col_index > 2) {
+              it[0] = base_color.fade_to_black(255 - drops[j].col);
+            }
+          } else {
+            if (drops[j].col_index > 2) {
+              drops[j].col_index = 0;
+              drops[j].col = sourcedrop;
+            } else {
+              if (drops[j].col_index == 2) {
+                drops[j].vel = -drops[j].vel / 4.0f;
+                drops[j].pos += drops[j].vel;
+              }
+              drops[j].col = sourcedrop * 2;
+              drops[j].col_index = 5;
             }
           }
-        } else {
-          lingering = false;
-          last_drop_end = now;
-          next_drop_delay = 1000 + esphome::random_uint32() % 2000;
-        }
-      }
-- addressable_lambda:
-    name: "Range Control"
-    update_interval: 100ms
-    lambda: |-
-      for (int i = 0; i < it.size(); i++) {
-        if (i >= id(led_start_index) && i < id(led_end_index)) {
-          it[i] = current_color;
-        } else {
-          it[i] = Color::BLACK;
         }
       }
 

@@ -1,13 +1,11 @@
 esphome:
-  name: bedback
-  friendly_name: "Bedback"
+  name: sidestand-3
+  friendly_name: "Sidestand-3"
 
-esp32:
-  board: esp32-c3-devkitm-1
-  framework: 
-    type: arduino
-
-bluetooth_proxy:
+esp8266:
+  board: nodemcuv2
+  restore_from_flash: true
+    
 logger:
 api:
 ota:
@@ -17,7 +15,7 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   ap:
-    ssid: "Bedback Fallback Hotspot"
+    ssid: "Sidestand-3 Fallback Hotspot"
     password: "12345678"
 
 captive_portal:
@@ -47,11 +45,11 @@ sensor:
     unit_of_measurement: "bytes"
     update_interval: 60s
     entity_category: "diagnostic"
-
+    
   # ESP Internal Temperature (supported on ESP32)
-  - platform: internal_temperature
-    name: "ESP Temperature"
-    entity_category: "diagnostic"
+  # - platform: internal_temperature
+  #   name: "ESP Temperature"
+  #   entity_category: "diagnostic"
 
 # ========== TEXT SENSORS ==========
 text_sensor:
@@ -65,59 +63,20 @@ text_sensor:
       name: "Connected SSID"
       icon: "mdi:wifi"
       entity_category: "diagnostic"
-    bssid:
-      name: "BSSID"
-      icon: "mdi:router-wireless"
-      entity_category: "diagnostic"
     mac_address:
       name: "MAC Address"
       icon: "mdi:ethernet"
       entity_category: "diagnostic"
 
 # ========== LIGHT ==========
-globals:
-  - id: led_start_index
-    type: int
-    initial_value: '0'
-  - id: led_end_index
-    type: int
-    initial_value: '15'
-
-number:
-  - platform: template
-    name: "LED Start Index"
-    id: led_start_input
-    min_value: 0
-    max_value: 80
-    initial_value: 0
-    step: 1
-    optimistic: true
-    set_action:
-      then:
-        - lambda: |-
-            id(led_start_index) = (int)x;
-
-  - platform: template
-    name: "LED End Index"
-    id: led_end_input
-    min_value: 1
-    max_value: 81
-    initial_value: 81
-    step: 1
-    optimistic: true
-    set_action:
-      then:
-        - lambda: |-
-            id(led_end_index) = (int)x;
 
 light:
   - platform: neopixelbus
     type: GRB
     variant: WS2812X
     pin: GPIO02
-    num_leds: 81
+    num_leds: 89
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
-    color_correct: [80%, 80%, 80%]
     effects: !include shared/effects.yaml

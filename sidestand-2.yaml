@@ -69,40 +69,6 @@ text_sensor:
       entity_category: "diagnostic"
 
 # ========== LIGHT ==========
-globals:
-  - id: led_start_index
-    type: int
-    initial_value: '0'
-  - id: led_end_index
-    type: int
-    initial_value: '15'
-
-number:
-  - platform: template
-    name: "LED Start Index"
-    id: led_start_input
-    min_value: 0
-    max_value: 89
-    initial_value: 0
-    step: 1
-    optimistic: true
-    set_action:
-      then:
-        - lambda: |-
-            id(led_start_index) = (int)x;
-
-  - platform: template
-    name: "LED End Index"
-    id: led_end_input
-    min_value: 1
-    max_value: 90
-    initial_value: 90
-    step: 1
-    optimistic: true
-    set_action:
-      then:
-        - lambda: |-
-            id(led_end_index) = (int)x;
 
 light:
   - platform: neopixelbus
