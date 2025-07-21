@@ -29,10 +29,22 @@ wled:
 sensor:
   # WiFi Signal Strength
   - platform: wifi_signal
-    name: "WiFi Signal"
+    name: "WiFi Signal (dBm)"
     id: wifi_signal_db
     update_interval: 60s
     entity_category: "diagnostic"
+
+  - platform: template
+    name: "WiFi Signal"
+    unit_of_measurement: "%"
+    id: wifi_signal_percent
+    update_interval: 60s
+    entity_category: "diagnostic"
+    icon: "mdi:wifi"
+    lambda: |-
+      float rssi = id(wifi_signal_db).state;
+      float percentage = 2.0 * (rssi + 100.0);
+      return std::min(100.0f, std::max(0.0f, percentage));
 
   # Uptime in seconds
   - platform: uptime
