@@ -16,6 +16,8 @@ ota:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  reboot_timeout: 
+    minutes: 2
   ap:
     ssid: "Sidestand-1 Fallback Hotspot"
     password: "12345678"
@@ -94,3 +96,34 @@ light:
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
     effects: !include shared/effects.yaml
+
+  - platform: partition
+    name: "Segment 1"
+    segments: 
+      - id: strip_light
+        from: 0
+        to: 16
+  - platform: partition
+    name: "Segment 2"
+    segments: 
+      - id: strip_light
+        from: 17
+        to: 33
+  - platform: partition
+    name: "Segment 3"
+    segments: 
+      - id: strip_light
+        from: 34
+        to: 50
+  - platform: partition
+    name: "Segment 4"
+    segments: 
+      - id: strip_light
+        from: 51
+        to: 67
+  - platform: partition
+    name: "Segment 5"
+    segments: 
+      - id: strip_light
+        from: 68
+        to: 89
