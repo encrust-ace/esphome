@@ -86,6 +86,38 @@ text_sensor:
 
 # ========== LIGHT ==========
 
+globals:
+  - id: palette
+    type: std::string
+
+  - id: speed
+    type: int
+    initial_value: '0'
+
+select:
+  - platform: template
+    name: Palette
+    options:
+      - Analogous
+      - Aqua
+      - Aurora
+      - Drywet
+    initial_option: Drywet
+    set_action: 
+      then:
+        - lambda: |-
+            id(palette) = (std::string)x;
+number:
+  - platform: template
+    name: Speed
+    step: 1
+    min_value: 0
+    max_value: 10
+    set_action: 
+      then:
+        - lambda: |-
+            id(speed) = (int)x;
+
 light:
   - platform: neopixelbus
     type: GRB
@@ -102,28 +134,22 @@ light:
     segments: 
       - id: strip_light
         from: 0
-        to: 16
+        to: 20
   - platform: partition
     name: "Segment 2"
     segments: 
       - id: strip_light
-        from: 17
-        to: 33
+        from: 21
+        to: 42
   - platform: partition
     name: "Segment 3"
     segments: 
       - id: strip_light
-        from: 34
-        to: 50
+        from: 43
+        to: 64
   - platform: partition
     name: "Segment 4"
     segments: 
       - id: strip_light
-        from: 51
-        to: 67
-  - platform: partition
-    name: "Segment 5"
-    segments: 
-      - id: strip_light
-        from: 68
+        from: 65
         to: 89
