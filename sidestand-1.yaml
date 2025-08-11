@@ -109,9 +109,21 @@ switch:
     id: reverse_effect_switch
     icon: "mdi:swap-horizontal"
     turn_on_action:
-      - lambda: id(reverse_effect) = true;
+      - lambda: |-
+          id(reverse_effect) = true;
+      - light.turn_off: strip_light
+      - delay: 100ms
+      - light.turn_on:
+          id: strip_light
+          effect: "Dynamic Glow"
     turn_off_action:
-      - lambda: id(reverse_effect) = false;
+      - lambda: |-
+          id(reverse_effect) = false;
+      - light.turn_off: strip_light
+      - delay: 100ms
+      - light.turn_on:
+          id: strip_light
+          effect: "Dynamic Glow"
 
 select:
   - platform: template
@@ -190,14 +202,14 @@ light:
               {{0, 255, 0}, {0, 255, 255}, {255, 255, 0}}          // Electric - Pure Green/Cyan/Yellow (High Voltage)
             };
             
-            // Speed multiplier: 0 means no movement, 1 is slow, 10 is fast
+            // Speed multiplier: 0 means no movement, 1 is slow, 10 is fast (doubled speed)
             int speed_value = id(speed);
             // Default direction is from start to end (direction_multiplier = 1.0f)
             float direction_multiplier = id(reverse_effect) ? -1.0f : 1.0f;
             
-            // Update gradient offset with consistent direction handling
+            // Update gradient offset with consistent direction handling (4x speed)
             if (speed_value > 0) {
-              float speed_factor = (float)speed_value * 0.0005f; // Small, consistent speed step
+              float speed_factor = (float)speed_value * 0.002f; // 4x speed: changed from 0.0005f to 0.002f
               id(gradient_offset) += speed_factor * direction_multiplier;
               
               // Keep offset in range [0, 1) with proper wrapping
