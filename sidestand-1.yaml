@@ -127,7 +127,284 @@ light:
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
-    effects: !include shared/effects.yaml
+    effects: - random:
+      - addressable_fireworks:
+      - addressable_twinkle:
+      - addressable_scan:
+      - addressable_color_wipe:
+      - addressable_rainbow:
+      - addressable_lambda:
+          name: "Dynamic Glow"
+          update_interval: 25ms
+          lambda: |-
+            // 10 Distinct World-Class Color Palettes + Default
+            static const uint8_t palettes[10][3][3] = {
+              {{0, 255, 127}, {64, 224, 255}, {255, 20, 147}},    // Aurora - Green/Blue/Pink (Northern Lights)
+              {{0, 119, 190}, {0, 180, 216}, {144, 224, 239}},    // Ocean - Deep Blue/Cyan/Light Blue (Ocean Depths)
+              {{220, 20, 60}, {255, 69, 0}, {255, 215, 0}},       // Fire - Crimson/Red-Orange/Gold (Real Fire)
+              {{57, 255, 20}, {255, 0, 150}, {0, 255, 255}},      // Neon - Lime/Hot Pink/Cyan (80s Neon)
+              {{34, 139, 34}, {154, 205, 50}, {255, 255, 224}},   // Forest - Forest Green/Yellow Green/Light Yellow
+              {{255, 94, 77}, {255, 154, 0}, {255, 206, 84}},     // Sunset - Coral/Orange/Peach (Warm Sunset)
+              {{176, 224, 230}, {135, 206, 250}, {255, 255, 255}}, // Ice - Light Blue/Sky Blue/White (Arctic Ice)
+              {{75, 0, 130}, {123, 104, 238}, {186, 85, 211}},    // Galaxy - Indigo/Medium Slate Blue/Orchid (Deep Space)
+              {{255, 182, 193}, {255, 105, 180}, {219, 112, 147}}, // Sakura - Light Pink/Hot Pink/Pale Violet (Cherry Blossom)
+              {{0, 255, 0}, {0, 255, 255}, {255, 255, 0}}         // Electric - Pure Green/Cyan/Yellow (High Voltage)
+            };
+            
+            int palette_idx = id(current_palette);
+            int speed_value = id(speed);
+            bool is_reversed = id(reverse_effect);
+            
+            // Track previous reverse state to detect changes
+            static bool prev_reverse = false;
+            static float direction_multiplier = -1.0f; // Start with normal direction
+            
+            // Update direction multiplier when reverse state changes
+            if (is_reversed != prev_reverse) {
+              direction_multiplier = is_reversed ? 1.0f : -1.0f;
+              prev_reverse = is_reversed;
+            }
+            
+            // Update gradient offset with consistent direction handling
+            if (speed_value > 0) {
+              float speed_factor = (float)speed_value * speed_value / 750.0f;
+              id(gradient_offset) += speed_factor * direction_multiplier;
+              
+              // Keep offset in range [0, 1) with proper wrapping
+              while (id(gradient_offset) >= 1.0f) id(gradient_offset) -= 1.0f;
+              while (id(gradient_offset) < 0.0f) id(gradient_offset) += 1.0f;
+            }
+            
+            auto blend = [](uint8_t a, uint8_t b, uint8_t t) -> uint8_t {
+              return a + (((int)b - (int)a) * t) / 255;
+            };
+            
+            for (int i = 0; i < it.size(); i++) {
+              float position = (float)i / (it.size() - 1);
+              float color_pos = position + id(gradient_offset);
+              
+              // Handle wrapping
+              while (color_pos >= 1.0f) color_pos -= 1.0f;
+              while (color_pos < 0.0f) color_pos += 1.0f;
+              
+              Color final_color;
+              
+              if (palette_idx == 10) {
+                // Default palette - use current strip color
+                final_color = current_color;
+              } else {
+                // Use selected palette
+                int seg = (int)(color_pos * 3.0f);
+                int next_seg = (seg + 1) % 3;
+                uint8_t blend_factor = (uint8_t)((color_pos * 3.0f - seg) * 255);
+                
+                uint8_t r1 = palettes[palette_idx][seg][0];
+                uint8_t g1 = palettes[palette_idx][seg][1];
+                uint8_t b1 = palettes[palette_idx][seg][2];
+                
+                uint8_t r2 = palettes[palette_idx][next_seg][0];
+                uint8_t g2 = palettes[palette_idx][next_seg][1];
+                uint8_t b2 = palettes[palette_idx][next_seg][2];
+                
+                final_color = Color(
+                  blend(r1, r2, blend_factor),
+                  blend(g1, g2, blend_factor),
+                  blend(b1, b2, blend_factor)
+                );
+              }
+              
+              it[i] = final_color;
+            }
+
+      - addressable_lambda:
+          name: "Amazing Drip"
+          update_interval: 16ms
+          lambda: |-
+            struct Drop {
+              float pos;          // Current position
+              float vel;          // Velocity
+              uint8_t brightness; // Current brightness
+              uint8_t state;      // 0=idle, 1=forming, 2=falling, 3=bouncing, 4=splash
+              uint8_t bounce_count; // Number of bounces
+              float bounce_height;  // Height after bounce
+              uint8_t trail_length; // Length of trail
+              uint32_t timer;     // State timer
+              uint8_t splash_radius; // Splash effect radius
+            };
+
+            static const int max_drops = 6;
+            static Drop drops[max_drops];
+            static bool initialized = false;
+            static uint32_t last_spawn = 0;
+
+            // Initialize drops on first run
+            if (!initialized) {
+              for (int j = 0; j < max_drops; j++) {
+                drops[j].state = 0;
+                drops[j].pos = 0;
+                drops[j].vel = 0;
+                drops[j].brightness = 0;
+                drops[j].bounce_count = 0;
+                drops[j].bounce_height = 0;
+                drops[j].trail_length = 3;
+                drops[j].timer = 0;
+                drops[j].splash_radius = 0;
+              }
+              initialized = true;
+            }
+
+            // Get current palette colors or default
+            int palette_idx = id(current_palette);
+            Color base_color;
+            
+            if (palette_idx == 10) {
+              // Use default strip color
+              base_color = current_color;
+            } else {
+              // Use palette color
+              // referencing palettes from Dynamic Glow effect
+              extern const uint8_t palettes[10][3][3];
+              base_color = Color(palettes[palette_idx][1][0], palettes[palette_idx][1][1], palettes[palette_idx][1][2]);
+            }
+
+            // Clear strip
+            it.all() = Color(0, 0, 0);
+            int seglen = it.size();
+            uint32_t now = millis();
+            
+            // Enhanced physics constants
+            float gravity = 0.008f;
+            float bounce_damping = 0.65f;
+            float terminal_velocity = 0.8f;
+            
+            // Spawn new drops randomly
+            if (now - last_spawn > (400 + (esphome::random_uint32() % 800))) {
+              for (int j = 0; j < max_drops; j++) {
+                if (drops[j].state == 0) {
+                  drops[j].state = 1; // forming
+                  drops[j].pos = seglen - 1;
+                  drops[j].vel = 0;
+                  drops[j].brightness = 50;
+                  drops[j].bounce_count = 0;
+                  drops[j].trail_length = 3 + (esphome::random_uint32() % 4);
+                  drops[j].timer = now;
+                  last_spawn = now;
+                  break;
+                }
+              }
+            }
+
+            // Process each drop
+            for (int j = 0; j < max_drops; j++) {
+              Drop& drop = drops[j];
+              
+              switch (drop.state) {
+                case 1: // Forming at source
+                  drop.brightness = std::min(255, (int)(drop.brightness + 8));
+                  if (drop.brightness >= 200) {
+                    drop.state = 2; // Start falling
+                    drop.vel = 0.02f;
+                  }
+                  // Draw forming drop
+                  it[seglen - 1] = base_color.fade_to_black(255 - drop.brightness);
+                  break;
+                  
+                case 2: // Falling
+                  drop.vel = std::min(terminal_velocity, drop.vel + gravity);
+                  drop.pos -= drop.vel;
+                  
+                  // Draw main drop
+                  int main_pos = (int)drop.pos;
+                  if (main_pos >= 0 && main_pos < seglen) {
+                    it[main_pos] = base_color;
+                  }
+                  
+                  // Draw trailing effect
+                  for (int t = 1; t <= drop.trail_length; t++) {
+                    int trail_pos = main_pos + t;
+                    if (trail_pos < seglen) {
+                      uint8_t trail_brightness = 255 - (t * 60);
+                      it[trail_pos] = base_color.fade_to_black(255 - trail_brightness);
+                    }
+                  }
+                  
+                  // Check for ground hit
+                  if (drop.pos <= 0) {
+                    drop.state = 3; // Bouncing
+                    drop.pos = 0;
+                    drop.vel = -drop.vel * bounce_damping;
+                    drop.bounce_height = drop.vel;
+                    drop.bounce_count++;
+                    drop.timer = now;
+                    drop.splash_radius = 3 + (esphome::random_uint32() % 3);
+                  }
+                  break;
+                  
+                case 3: // Bouncing
+                  drop.vel += gravity;
+                  drop.pos -= drop.vel;
+                  
+                  if (drop.pos <= 0) {
+                    drop.pos = 0;
+                    drop.vel = -drop.vel * bounce_damping;
+                    drop.bounce_count++;
+                    
+                    // Create splash effect
+                    drop.state = 4;
+                    drop.timer = now;
+                    
+                    if (drop.bounce_count >= 3 || drop.vel > -0.1f) {
+                      // Stop bouncing, create final splash
+                      drop.timer = now;
+                    }
+                  }
+                  
+                  // Draw bouncing drop
+                  int bounce_pos = (int)drop.pos;
+                  if (bounce_pos >= 0 && bounce_pos < seglen) {
+                    it[bounce_pos] = base_color;
+                  }
+                  break;
+                  
+                case 4: // Splash effect
+                  {
+                    uint32_t splash_age = now - drop.timer;
+                    if (splash_age < 300) {
+                      // Animated splash effect
+                      float splash_intensity = 1.0f - (float)splash_age / 300.0f;
+                      
+                      for (int s = 0; s <= drop.splash_radius; s++) {
+                        if (s < seglen) {
+                          uint8_t splash_bright = (uint8_t)(255 * splash_intensity * (1.0f - (float)s / drop.splash_radius));
+                          Color splash_color = base_color.fade_to_black(255 - splash_bright);
+                          it[s] = Color(
+                            std::max((int)it[s].red, (int)splash_color.red),
+                            std::max((int)it[s].green, (int)splash_color.green),
+                            std::max((int)it[s].blue, (int)splash_color.blue)
+                          );
+                        }
+                      }
+                    } else {
+                      // Splash finished, reset drop
+                      drop.state = 0;
+                    }
+                  }
+                  break;
+              }
+            }
+            
+            // Add subtle source glow
+            if (seglen > 0) {
+              Color source_glow = base_color.fade_to_black(200);
+              it[seglen - 1] = Color(
+                std::max((int)it[seglen - 1].red, (int)source_glow.red),
+                std::max((int)it[seglen - 1].green, (int)source_glow.green),
+                std::max((int)it[seglen - 1].blue, (int)source_glow.blue)
+              );
+            }
+
+      - wled:
+          name:
 
   - platform: partition
     name: "Segment 1"
