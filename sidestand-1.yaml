@@ -29,7 +29,6 @@ wled:
 
 # ========== SENSORS ==========
 sensor:
-  # WiFi Signal Strength
   - platform: wifi_signal
     name: "WiFi Signal (dBm)"
     id: wifi_signal_db
@@ -48,13 +47,11 @@ sensor:
       float percentage = 2.0 * (rssi + 100.0);
       return std::min(100.0f, std::max(0.0f, percentage));
 
-  # Uptime in seconds
   - platform: uptime
     name: "Uptime"
     unit_of_measurement: "s"
     entity_category: "diagnostic"
 
-  # Free Heap (RAM)
   - platform: template
     name: "Free Heap"
     lambda: 'return (float)ESP.getFreeHeap();'
@@ -62,14 +59,12 @@ sensor:
     update_interval: 60s
     entity_category: "diagnostic"
     
-  # ESP Internal Temperature (supported on ESP32)
   - platform: internal_temperature
     name: "ESP Temperature"
     entity_category: "diagnostic"
 
 # ========== TEXT SENSORS ==========
 text_sensor:
-  # WiFi Info
   - platform: wifi_info
     ip_address:
       name: "IP Address"
@@ -85,7 +80,6 @@ text_sensor:
       entity_category: "diagnostic"
 
 # ========== LIGHT ==========
-
 globals:
   - id: current_palette
     type: int
@@ -103,6 +97,10 @@ globals:
     type: bool
     initial_value: 'false'
 
+  - id: previous_reverse_state
+    type: bool
+    initial_value: 'false'
+
 switch:
   - platform: template
     name: "Reverse Effect"
@@ -111,19 +109,9 @@ switch:
     turn_on_action:
       - lambda: |-
           id(reverse_effect) = true;
-      - light.turn_off: strip_light
-      - delay: 100ms
-      - light.turn_on:
-          id: strip_light
-          effect: "Dynamic Glow"
     turn_off_action:
       - lambda: |-
           id(reverse_effect) = false;
-      - light.turn_off: strip_light
-      - delay: 100ms
-      - light.turn_on:
-          id: strip_light
-          effect: "Dynamic Glow"
 
 select:
   - platform: template
@@ -140,7 +128,7 @@ select:
       - Galaxy
       - Sakura
       - Electric
-      - Default # Custom option for user to choose current light color
+      - Default
     initial_option: "Default"
     set_action: 
       then:
@@ -178,41 +166,34 @@ light:
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
     effects:
-      - random:
-      - addressable_fireworks:
-      - addressable_twinkle:
-      - addressable_scan:
-      - addressable_color_wipe:
-      - addressable_rainbow:
       - addressable_lambda:
           name: "Dynamic Glow"
           update_interval: 25ms
           lambda: |-
-            // 10 Distinct World-Class Color Palettes + Default
             static const uint8_t palettes[10][3][3] = {
-              {{0, 255, 127}, {64, 224, 255}, {255, 20, 147}},     // Aurora - Green/Blue/Pink (Northern Lights)
-              {{0, 119, 190}, {0, 180, 216}, {144, 224, 239}},     // Ocean - Deep Blue/Cyan/Light Blue (Ocean Depths)
-              {{220, 20, 60}, {255, 69, 0}, {255, 215, 0}},        // Fire - Crimson/Red-Orange/Gold (Real Fire)
-              {{57, 255, 20}, {255, 0, 150}, {0, 255, 255}},       // Neon - Lime/Hot Pink/Cyan (80s Neon)
-              {{34, 139, 34}, {154, 205, 50}, {255, 255, 224}},    // Forest - Forest Green/Yellow Green/Light Yellow
-              {{255, 94, 77}, {255, 154, 0}, {255, 206, 84}},      // Sunset - Coral/Orange/Peach (Warm Sunset)
-              {{176, 224, 230}, {135, 206, 250}, {255, 255, 255}}, // Ice - Light Blue/Sky Blue/White (Arctic Ice)
-              {{75, 0, 130}, {123, 104, 238}, {186, 85, 211}},     // Galaxy - Indigo/Medium Slate Blue/Orchid (Deep Space)
-              {{255, 182, 193}, {255, 105, 180}, {219, 112, 147}}, // Sakura - Light Pink/Hot Pink/Pale Violet (Cherry Blossom)
-              {{0, 255, 0}, {0, 255, 255}, {255, 255, 0}}          // Electric - Pure Green/Cyan/Yellow (High Voltage)
+              {{0, 255, 127}, {64, 224, 255}, {255, 20, 147}},     // Aurora
+              {{0, 119, 190}, {0, 180, 216}, {144, 224, 239}},     // Ocean
+              {{220, 20, 60}, {255, 69, 0}, {255, 215, 0}},        // Fire
+              {{57, 255, 20}, {255, 0, 150}, {0, 255, 255}},       // Neon
+              {{34, 139, 34}, {154, 205, 50}, {255, 255, 224}},    // Forest
+              {{255, 94, 77}, {255, 154, 0}, {255, 206, 84}},      // Sunset
+              {{176, 224, 230}, {135, 206, 250}, {255, 255, 255}}, // Ice
+              {{75, 0, 130}, {123, 104, 238}, {186, 85, 211}},     // Galaxy
+              {{255, 182, 193}, {255, 105, 180}, {219, 112, 147}}, // Sakura
+              {{0, 255, 0}, {0, 255, 255}, {255, 255, 0}}          // Electric
             };
             
-            // Speed multiplier: 0 means no movement, 1 is slow, 10 is fast (doubled speed)
+            if (id(previous_reverse_state) != id(reverse_effect)) {
+              id(gradient_offset) = 0.0f;
+              id(previous_reverse_state) = id(reverse_effect);
+            }
+            
             int speed_value = id(speed);
-            // Default direction is from start to end (direction_multiplier = 1.0f)
             float direction_multiplier = id(reverse_effect) ? -1.0f : 1.0f;
             
-            // Update gradient offset with consistent direction handling (4x speed)
             if (speed_value > 0) {
-              float speed_factor = (float)speed_value * 0.002f; // 4x speed: changed from 0.0005f to 0.002f
+              float speed_factor = (float)speed_value * 0.002f;
               id(gradient_offset) += speed_factor * direction_multiplier;
-              
-              // Keep offset in range [0, 1) with proper wrapping
               while (id(gradient_offset) >= 1.0f) id(gradient_offset) -= 1.0f;
               while (id(gradient_offset) < 0.0f) id(gradient_offset) += 1.0f;
             }
@@ -225,17 +206,14 @@ light:
               float position = (float)i / (it.size() - 1);
               float color_pos = position + id(gradient_offset);
               
-              // Handle wrapping
               while (color_pos >= 1.0f) color_pos -= 1.0f;
               while (color_pos < 0.0f) color_pos += 1.0f;
               
               Color final_color;
               
               if (id(current_palette) == 10) {
-                // Default palette - use current strip color
                 final_color = current_color;
               } else {
-                // Use selected palette
                 int seg = (int)(color_pos * 3.0f);
                 int next_seg = (seg + 1) % 3;
                 uint8_t blend_factor = (uint8_t)((color_pos * 3.0f - seg) * 255);
@@ -254,11 +232,14 @@ light:
                   blend(b1, b2, blend_factor)
                 );
               }
-              
               it[i] = final_color;
             }
-
-      - wled:
+      - random:
+      - addressable_fireworks:
+      - addressable_twinkle:
+      - addressable_scan:
+      - addressable_color_wipe:
+      - addressable_rainbow:
 
   - platform: partition
     name: "Segment 1"
