@@ -40,10 +40,10 @@ sensor:
 
   - platform: copy # Reports the WiFi signal strength in %
     source_id: wifi_signal_db
-    name: "WiFi Signal Percent"
+    name: "WiFi Signal"
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
-    unit_of_measurement: "Signal %"
+    unit_of_measurement: "%"
     entity_category: "diagnostic"
     device_class: ""
 
@@ -81,12 +81,6 @@ text_sensor:
       name: "MAC Address"
       icon: "mdi:ethernet"
       entity_category: "diagnostic"
-
-  - platform: debug
-    device:
-      name: "Device Info"
-    reset_reason:
-      name: "Reset Reason"
     
 
 # ========== LIGHT ==========
