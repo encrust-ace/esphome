@@ -59,12 +59,6 @@ sensor:
   - platform: debug
     free:
       name: "Heap Free"
-    block:
-      name: "Heap Max Block"
-    loop_time:
-      name: "Loop Time"
-    cpu_frequency:
-      name: "CPU Frequency"
 
 # ========== TEXT SENSORS ==========
 text_sensor:
@@ -76,10 +70,6 @@ text_sensor:
     ssid:
       name: "Connected SSID"
       icon: "mdi:wifi"
-      entity_category: "diagnostic"
-    mac_address:
-      name: "MAC Address"
-      icon: "mdi:ethernet"
       entity_category: "diagnostic"
     
 
