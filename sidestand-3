@@ -65,6 +65,31 @@ text_sensor:
 
 # ========== LIGHT ==========
 light:
+  - platform: partition
+    name: "Segment 1"
+    segments: 
+      - id: strip_light
+        from: 0
+        to: 19
+  - platform: partition
+    name: "Segment 2"
+    segments: 
+      - id: strip_light
+        from: 20
+        to: 39
+  - platform: partition
+    name: "Segment 3"
+    segments: 
+      - id: strip_light
+        from: 40
+        to: 59
+  - platform: partition
+    name: "Segment 4"
+    segments: 
+      - id: strip_light
+        from: 60
+        to: 86
+      
   - platform: neopixelbus
     type: GRB
     variant: WS2812X
