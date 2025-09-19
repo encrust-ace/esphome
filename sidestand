@@ -68,7 +68,7 @@ light:
   - platform: neopixelbus
     type: GRB
     variant: WS2812X
-    pin: GPIO01
+    pin: GPIO02
     num_leds: 87
     id: strip_light_1
     name: "Light 1"
@@ -93,7 +93,7 @@ light:
   - platform: neopixelbus
     type: GRB
     variant: WS2812X
-    pin: GPIO02
+    pin: GPIO03
     num_leds: 87
     id: strip_light_2
     name: "Light 2"
